@@ -3,7 +3,7 @@
 import { defineEventHandler, sendRedirect } from 'h3';
 import { scrapeCustomProviders } from '../additional-sources/languages/custom-wrapper';
 import { getMovieMediaDetails, getShowMediaDetails } from '../functions/tmdb';
-import { buildManifest, handleSearch, handleMeta } from '../additional-sources/languages/custom-wrapper';
+import { buildManifest, handleCatalog, handleSearch, handleMeta } from '../additional-sources/languages/custom-wrapper';
 
 import 'dotenv/config'
 const name = process.env.name || 'Stremify'
@@ -18,7 +18,8 @@ export const manifest = {
 	],
 	"types": [
 		"movie",
-		"series"
+		"series",
+    "tv"
 	],
 	"name": name,
 	"description": "A multi-server streaming addon.",
@@ -49,10 +50,18 @@ export default defineEventHandler(async (event) => {
     return await buildManifest(JSON.stringify(manifest), atob(manifestMatch[1]));
   }
 
-  const catalogMatch = url.pathname.match(/^\/([^\/]+)\/catalog\/([^/]*)\/([^/]*)\/search=([^.]*).json/)
-  if (catalogMatch) {
+  const catalogSearchMatch = url.pathname.match(/^\/([^\/]+)\/catalog\/([^/]*)\/([^/]*)\/search=([^.]*).json/)
+  if (catalogSearchMatch) {
     event.res.setHeader('access-control-allow-origin', '*')
-    const searchData = await handleSearch(decodeURIComponent(catalogMatch[4]), catalogMatch[3], catalogMatch[2])
+    const searchData = await handleSearch(decodeURIComponent(
+      catalogSearchMatch[4]), catalogSearchMatch[3], catalogSearchMatch[2])
+    event.res.end(JSON.stringify(searchData))
+  }
+
+  const catalogRootMatch = url.pathname.match(/^\/([^\/]+)\/catalog\/([^\/]*)\/([^.=]*).json/)
+  if (catalogRootMatch) {
+    event.res.setHeader('access-control-allow-origin', '*')
+    const searchData = await handleCatalog(catalogRootMatch[3], catalogRootMatch[2])
     event.res.end(JSON.stringify(searchData))
   }
 
@@ -108,6 +117,10 @@ export default defineEventHandler(async (event) => {
           const mediaData = await scrapeCustomProviders(decodedConfig, decodeURIComponent(id), null, null)
           event.res.end(JSON.stringify(mediaData))
         }
+    } else if (type == "tv") {
+      const decodedId = decodeURIComponent(idPath)
+      const mediaData = await scrapeCustomProviders(decodedConfig, decodedId, 0, 0)
+      event.res.end(JSON.stringify(mediaData))
     }
     return;
   }

@@ -6,6 +6,7 @@ import { scrapeGuardahd } from "./it/guardahd";
 import { scrapeVerdahd } from './es/verhdlink'; 
 import { scrapeCinehdplus } from './es/cinehdplus';
 import { scrapeFrenchcloud } from "./fr/frenchcloud";
+import { streameast_nba_catalog, streameast_nfl_catalog, streameastIdPrefix, streameastSportIdPrefix, getCatalogStreameast, scrapeStreameast } from "~/additional-sources/tv/streameast"
 import { dramacoolMeta, dramacoolPrefix, dramacool_catalog, scrapeDramacool, scrapefromDramacoolCatalog, searchDramacool } from "./multilang/dramacool";
 import { scrapeSmashystreamLang, scrapeSmashystreamOrg } from "./multilang/smashystream"
 import { scrapeVidLink } from "./multilang/vidlink"
@@ -89,6 +90,14 @@ const info = new Map<string, any>([
     //["myfilestorage", {name: "Myfilestorage", lang_emoji: "🎥"}],
     //["goquick", {name: "GoQuick", lang_emoji: "🎥"}],
     //["moviesapi", {name: "MoviesAPI", lang_emoji: "🎥"}],
+    ["streameast_nba_catalog", {name: "Streameast - NBA (Catalog Resolver + Bespoke Scraper)", lang_emoji: "🏀🖥️"}],
+    ["streameast_nfl_catalog", {name: "Streameast - NFL (Catalog Resolver + Bespoke Scraper)", lang_emoji: "🏈🖥️"}],
+]);
+
+export const catalogFunctions = new Map<string, any>([
+    // Streameast has a custom "sport" field that is set manually here.
+    ["streameast_nba_catalog", async (mediaType: 'tv') => await getCatalogStreameast('nba')],
+    ["streameast_nfl_catalog", async (mediaType: 'tv') => await getCatalogStreameast('nfl')],
 ]);
 
 export const catalogSearchFunctions = new Map<string, any>([
@@ -113,9 +122,23 @@ export const catalogManifests = new Map<string, any>([
     ["gogoanime_catalog", {catalogs: gogoanime_catalog, prefix: gogoanimePrefix}],
     ["visioncine", {catalogs: visioncineCatalogs, prefix: visioncinePrefix}],
     ["akwam", {catalogs: akwamCatalog, prefix: akwamPrefix}],
+    ["streameast_nba_catalog", {catalogs: streameast_nba_catalog, prefix: streameastSportIdPrefix('nba')}],
+    ["streameast_nfl_catalog", {catalogs: streameast_nfl_catalog, prefix: streameastSportIdPrefix('nfl')}],
 ]);
 
+// Returns the relevant scraping function for the given arguments.
+async function getScrapingFunction(source, id, episode) {
+    // Any episode information denotes a series being requested.
+    if (episode !== 0) {
+        return await series.get(source)
+    }
+
+    // By default, return movie scraper function.
+    return await movies.get(source)
+}
+
 export async function scrapeCustomProviders(list, id, season, episode, media? ) {
+    console.log(`Scraping for: ${id}`)
     const output: any = {
         streams: []
     };
@@ -131,15 +154,20 @@ export async function scrapeCustomProviders(list, id, season, episode, media? ) 
             console.log(err)
         }
     }
+    if (id.startsWith(streameastIdPrefix)) {
+        console.log(`Overriding scrape for bespoke situation.`)
+        return await scrapeStreameast(id)
+    }
     const promises = sourcelist.map(async (source) => {
         const cached = await getCache(source, id, season, episode) 
         if (cached) { return cached; }
         try {
             return Promise.race([
                 (async () => {
+                    console.log(`Source checked: ${source}`)
                     if (source == "built-in" && scrape_built_in == "true") {} else if (disabled_providers.includes(source) != true && scrape_custom_providers == "true") {
                         try {
-                            const scrapingFunction = episode === 0 ? await movies.get(source) : await series.get(source)
+                            const scrapingFunction = await getScrapingFunction(source, id, episode)
                             if (typeof scrapingFunction === 'function') {
                                 const mediaResults = await scrapingFunction(id, season, episode, media);
                                 if (mediaResults != null && Array.isArray(mediaResults)) {
@@ -150,6 +178,7 @@ export async function scrapeCustomProviders(list, id, season, episode, media? ) 
                             }
                             setCache(source, id, season, episode)
                         } catch (error) {
+                            console.log(`Error in custom scraping function: ${error.message}`)
                             return null;
                         }
                     }
@@ -221,6 +250,25 @@ export async function buildManifest(manifest: string, providerlist) {
     return(newManifest)
 }
 
+// Handles home page browsing for featured content of a catalog, should it be supported.
+export async function handleCatalog(queriedCatalog, type) {
+    let catalogResults;
+
+    for (const [key, value] of catalogManifests.entries()) {
+        if (value.catalogs) {
+            for (const catalog of value.catalogs) {
+                if (catalog.id == queriedCatalog) {
+                    const catalogFunction = catalogFunctions.get(key)
+                    catalogResults = await catalogFunction(type)
+                }
+            }
+        }
+    }
+
+    return catalogResults
+}
+
+// Handles searching for content within a catalog, should it be supported.
 export async function handleSearch(query, queriedCatalog, type) {
     let searchResults;
     for (const [key, value] of catalogManifests.entries()) {
