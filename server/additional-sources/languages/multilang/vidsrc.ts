@@ -13,6 +13,7 @@ const VIDSRC_URL_REGEX_ALLOWED = [
     new RegExp(atob('Xmh0dHBzXDpcL1wvKFthLXpBLXpdK1wuKT9nb29nbGVhcGlzXC4uKiQ=')),
     new RegExp(atob('Xmh0dHBzXDpcL1wvLipcL3V0XC5qcyhcPy4qKT8k')),
     new RegExp(atob('Xmh0dHBzXDpcL1wvKFthLXpBLXpdK1wuKT90bWRi')),
+    new RegExp(atob('Xmh0dHBzXDpcL1wvKFthLXpBLXpdK1wuKT9jbG91ZG5lc3RyYVwuY29t')),
 ]
 
 // Any incoming request URL which matches any of these regexes is explicitly denied.
