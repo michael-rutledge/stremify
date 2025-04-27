@@ -28,7 +28,7 @@ export async function scrapeVidLink(id: string, season: string, episode: string,
   let fetchUrl = episode === '0' ? `${VIDLINK_URL_BASE}/movie/${id}` : `${VIDLINK_URL_BASE}/tv/${id}/${season}/${episode}`
   let browserScraper = new BrowserScraper(
     /*provider=*/'vidlink',
-    /*streamRegex=*//^https:\/\/.*\.m3u8$/,
+    /*streamRegex=*//^https:\/\/.*\.m3u8/,
     VIDLINK_URL_REGEX_ALLOWED,
     /*urlRegexesDenied=*/[])
 
@@ -39,6 +39,9 @@ export async function scrapeVidLink(id: string, season: string, episode: string,
       timeout: 5000
     })
     streams = await browserScraper.getStreams(/*timeout=*/5000)
+    // Vidlink needs extraneous URL args removed.
+    let streamIgnoreRegex = /\?headers=.*$/
+    streams[0].url = streams[0].url.replace(streamIgnoreRegex, "")
   } catch (err) {
     console.log(`Vidlink failed unexpectedly: ${err.message}`)
   } finally {
