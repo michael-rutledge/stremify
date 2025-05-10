@@ -36,7 +36,7 @@ export async function scrapeVidLink(id: string, season: string, episode: string,
   try {
     await browserScraper.init()
     await browserScraper.page.goto(fetchUrl, {
-      timeout: 5000
+      timeout: 7000
     })
     streams = await browserScraper.getStreams(/*timeout=*/5000)
     // Vidlink needs extraneous URL args removed.

@@ -52,7 +52,7 @@ export async function scrapeVidSrc(id: string, season: string, episode: string, 
             const hasButton = (await frame.$("#pl_but")) !== null
             return hasButton
         }, {
-            timeout: 2000
+            timeout: 2001
         })
         // Click the play button.
         await playerIframe.$eval(`#pl_but`, element =>
